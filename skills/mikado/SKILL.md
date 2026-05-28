@@ -1,3 +1,7 @@
+---
+description: Structured approach to large refactorings using the Mikado Method — try, fail, record prerequisites, revert, work leaves. Use when a change cascades into many breakages, when test coverage needs retrofitting before restructuring, or when a refactoring is too large for a single big-bang PR.
+---
+
 # Mikado Method for Agentic Refactoring
 
 Never push through cascading failures. Let failures reveal prerequisites, record them in a dependency graph, revert to green, and work bottom-up from leaf nodes.
