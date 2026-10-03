@@ -92,6 +92,27 @@ nodes:
 5. **Work one leaf at a time.** No parallel changes that might interact.
 6. **Name commits after graph nodes.**
 
+## Subagents for Context Isolation
+
+Prefer a fresh subagent for each substantial leaf task, including test-writing leaves. A dedicated subagent tool is not required: a separate agent CLI process in tmux also provides context isolation. Keep implementation details in the subagent's context and concise outcomes in the coordinator's context. Tiny tasks can stay with the coordinator when delegation overhead outweighs the benefit. Before concluding that subagents are unavailable, check for tmux and an installed, authenticated agent CLI; if neither delegation route is usable, follow the same loop directly.
+
+- **Coordinator:** owns `mikado.yaml`, selects the next workable leaf, populates its `detail`, and marks it `in-progress`. Reviews the returned changes and verification evidence, commits the green result, then marks the node `done`.
+- **Task brief:** give the subagent the node ID, scope, relevant files and dependency outcomes, verification command, and necessary context. Include the Mikado rules explicitly: assess coverage first, stay within this leaf, and revert on failure rather than fixing cascading breakages. Do not forward the entire conversation by default.
+- **Subagent:** implements and tests only the assigned leaf. On failure, reverts only its own attempted changes, preserves pre-existing work, and reports newly discovered prerequisites instead of expanding scope. The coordinator records those prerequisites and returns the leaf to `pending`.
+- **Handoff:** return a concise change summary, changed file paths, verification commands and results, and any prerequisites or gotchas. State whether the attempt succeeded or was reverted. Keep detailed logs out of the coordinator's context unless needed for review; persist essential context in the graph.
+- **Sequential by default:** finish and review one leaf before dispatching the next. Subagents save context; they do not imply parallel changes. Never run changes that might interact concurrently.
+
+### tmux Fallback
+
+If no subagent tool is available, launch a fresh agent CLI session in tmux for the selected leaf. tmux only hosts the process; the separate agent session provides the fresh context.
+
+1. Read the tmux skill if available, and check the installed agent CLI's documentation/help for fresh-session and prompt-input options. Do not resume the coordinator's session or assume a particular CLI syntax.
+2. Write a bounded task brief and designate a handoff file outside tracked project files. Include the repository path, the leaf details, verification requirements, and the handoff format above. Tell the worker not to delegate further, edit the graph, or commit; those remain the coordinator's responsibility.
+3. Use a dedicated tmux socket and a unique session name for the leaf. Start the agent in the intended repository with a fresh conversation and only the task brief. Preserve existing permission/trust boundaries; do not enable permission-bypass flags. Give the user a concrete attach or capture command to monitor it.
+4. Keep one worker active at a time. While it works, do not edit the same worktree. Poll for completion using bounded pane captures or a completion marker, rather than repeatedly importing full logs into the coordinator's context.
+5. Read the handoff, inspect the diff, and review verification evidence before committing or updating the graph. A stopped process or completion marker alone does not prove success. If the worker fails or disappears, inspect partial changes and recover only its edits; never blindly reset the worktree.
+6. After collecting the result, close only the tmux session created for that worker. Retain any essential findings in `mikado.yaml` before dispatching a fresh worker for the next leaf.
+
 ## When to Use
 
 - A change cascades into many breakages across the codebase.
